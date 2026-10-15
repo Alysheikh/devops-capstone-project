@@ -1,3 +1,7 @@
+# devops-capstone-project
+
+A DevOps capstone project to build, test, secure, containerize, and deploy a Customer Accounts RESTful microservice using Python Flask, automated CI checks, Docker, Kubernetes, and Tekton.
+
 # DevOps Capstone Template
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
