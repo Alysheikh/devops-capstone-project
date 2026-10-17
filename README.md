@@ -1,5 +1,7 @@
 # devops-capstone-project
 
+![Build Status](https://github.com/Alysheikh/devops-capstone-project/actions/workflows/ci-build.yaml/badge.svg)
+
 A DevOps capstone project to build, test, secure, containerize, and deploy a Customer Accounts RESTful microservice using Python Flask, automated CI checks, Docker, Kubernetes, and Tekton.
 
 # DevOps Capstone Template
