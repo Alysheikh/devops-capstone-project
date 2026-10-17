@@ -1,38 +1,111 @@
-#
-# This pipeline needs the following tasks from Tekton Catalog
-#   - git-clone
-#   - flake8
-#
----
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
-metadata:  
+metadata:
   name: cd-pipeline
 spec:
   workspaces:
     - name: pipeline-workspace
+    - name: registry-auth
   params:
     - name: repo-url
+      type: string
     - name: branch
+      type: string
       default: main
   tasks:
     - name: init
       workspaces:
         - name: source
-          workspace: pipeline-workspace          
+          workspace: pipeline-workspace
       taskRef:
         name: cleanup
 
     - name: clone
       workspaces:
         - name: output
-          workspace: pipeline-workspace          
+          workspace: pipeline-workspace
       taskRef:
         name: git-clone
       params:
-      - name: url
-        value: $(params.repo-url)
-      - name: revision
-        value: $(params.branch)
+        - name: url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.branch)
       runAfter:
         - init
+
+    - name: lint
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+      taskRef:
+        name: flake8
+      params:
+        - name: path
+          value: service
+        - name: requirements_file
+          value: ""
+        - name: args
+          value:
+            - --count
+            - --max-complexity=10
+            - --max-line-length=127
+            - --statistics
+      runAfter:
+        - clone
+
+    - name: tests
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+      taskRef:
+        name: tests
+      params:
+        - name: args
+          value: "-v --with-spec --spec-color"
+        - name: database_uri
+          value: "sqlite:///test.db"
+      runAfter:
+        - clone
+
+    - name: build
+      taskRef:
+        kind: ClusterTask
+        name: buildah
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+        - name: dockerconfig
+          workspace: registry-auth
+      params:
+        - name: IMAGE
+          value: us.icr.io/sn-labs-majason45/accounts:1
+        - name: TLSVERIFY
+          value: "true"
+        - name: FORMAT
+          value: docker
+      runAfter:
+        - lint
+        - tests
+
+    - name: deploy
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      workspaces:
+        - name: manifest-dir
+          workspace: pipeline-workspace
+      params:
+        - name: SCRIPT
+          value: |
+            set -e
+            echo "===== Deploy PostgreSQL ====="
+            oc apply -f deploy/postgresql.yaml
+            oc rollout status deployment/postgresql --timeout=180s
+            echo "===== Deploy Accounts ====="
+            oc apply -f deploy/accounts.yaml
+            oc rollout status deployment/accounts --timeout=240s
+            echo "===== Verify deployment ====="
+            oc get deployments,pods,services -o wide
+      runAfter:
+        - build
