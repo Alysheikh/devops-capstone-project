@@ -143,8 +143,8 @@ class TestAccountService(TestCase):
         )
 
     def test_method_not_allowed(self):
-        """It should reject unsupported methods for accounts."""
-        response = self.client.get(BASE_URL)
+        """It should reject unsupported methods for the home page."""
+        response = self.client.post("/")
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED,
@@ -185,3 +185,23 @@ class TestAccountService(TestCase):
             response.status_code,
             status.HTTP_404_NOT_FOUND,
         )
+
+    def test_list_accounts(self):
+        """It should List all Accounts."""
+        accounts = self._create_accounts(3)
+
+        response = self.client.get(BASE_URL)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(len(data), 3)
+        returned_names = {item["name"] for item in data}
+        expected_names = {account.name for account in accounts}
+        self.assertEqual(returned_names, expected_names)
+
+    def test_list_accounts_when_empty(self):
+        """It should return an empty list when no Accounts exist."""
+        response = self.client.get(BASE_URL)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get_json(), [])
